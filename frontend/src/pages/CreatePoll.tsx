@@ -1,103 +1,119 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { api } from '../services/api'
-import { CreatePollRequest } from '../types'
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { api } from "../services/api";
+import { CreatePollRequest, PollType } from "../types";
 
 function CreatePoll() {
-  const navigate = useNavigate()
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [options, setOptions] = useState<string[]>(['', ''])
-  const [deadline, setDeadline] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const navigate = useNavigate();
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [options, setOptions] = useState<string[]>(["", ""]);
+  const [pollType, setPollType] = useState<PollType>("single");
+  const [maxChoices, setMaxChoices] = useState(1);
+  const [deadline, setDeadline] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const getMinDate = () => {
-    const now = new Date()
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
-    return now.toISOString().slice(0, 16)
-  }
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  };
 
   const validate = (): boolean => {
-    const newErrors: Record<string, string> = {}
+    const newErrors: Record<string, string> = {};
 
     if (!title.trim()) {
-      newErrors.title = '请输入投票标题'
+      newErrors.title = "请输入投票标题";
     } else if (title.length > 200) {
-      newErrors.title = '标题不能超过200个字符'
+      newErrors.title = "标题不能超过200个字符";
     }
 
     if (description.length > 1000) {
-      newErrors.description = '描述不能超过1000个字符'
+      newErrors.description = "描述不能超过1000个字符";
     }
 
-    const validOptions = options.filter(o => o.trim())
+    const validOptions = options.filter((o) => o.trim());
     if (validOptions.length < 2) {
-      newErrors.options = '至少需要2个有效选项'
+      newErrors.options = "至少需要2个有效选项";
     } else if (validOptions.length > 8) {
-      newErrors.options = '最多只能有8个选项'
+      newErrors.options = "最多只能有8个选项";
+    }
+
+    if (pollType === "multiple") {
+      if (maxChoices < 1) {
+        newErrors.maxChoices = "最多可选数量至少为1";
+      } else if (maxChoices > validOptions.length) {
+        newErrors.maxChoices = `最多可选数量不能超过选项数(${validOptions.length})`;
+      }
     }
 
     if (!deadline) {
-      newErrors.deadline = '请选择截止时间'
+      newErrors.deadline = "请选择截止时间";
     } else if (new Date(deadline) <= new Date()) {
-      newErrors.deadline = '截止时间必须在未来'
+      newErrors.deadline = "截止时间必须在未来";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!validate()) {
-      return
+      return;
     }
 
-    const validOptions = options.filter(o => o.trim())
+    const validOptions = options.filter((o) => o.trim());
     const request: CreatePollRequest = {
       title: title.trim(),
       description: description.trim(),
-      options: validOptions.map(text => ({ text: text.trim() })),
+      options: validOptions.map((text) => ({ text: text.trim() })),
+      poll_type: pollType,
+      max_choices: pollType === "single" ? 1 : maxChoices,
       deadline: new Date(deadline).toISOString(),
-    }
+    };
 
     try {
-      setLoading(true)
-      setError(null)
-      const poll = await api.createPoll(request)
-      navigate(`/poll/${poll.id}`)
+      setLoading(true);
+      setError(null);
+      const poll = await api.createPoll(request);
+      navigate(`/poll/${poll.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '创建失败')
+      setError(err instanceof Error ? err.message : "创建失败");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const addOption = () => {
     if (options.length < 8) {
-      setOptions([...options, ''])
+      setOptions([...options, ""]);
     }
-  }
+  };
 
   const removeOption = (index: number) => {
     if (options.length > 2) {
-      const newOptions = options.filter((_, i) => i !== index)
-      setOptions(newOptions)
+      const newOptions = options.filter((_, i) => i !== index);
+      setOptions(newOptions);
     }
-  }
+  };
 
   const updateOption = (index: number, value: string) => {
-    const newOptions = [...options]
-    newOptions[index] = value
-    setOptions(newOptions)
-  }
+    const newOptions = [...options];
+    newOptions[index] = value;
+    setOptions(newOptions);
+  };
+
+  const validOptionsCount = options.filter((o) => o.trim()).length;
 
   return (
     <div>
-      <Link to="/" className="back-link">← 返回列表</Link>
+      <Link to="/" className="back-link">
+        ← 返回列表
+      </Link>
 
       {error && (
         <div className="error-message">
@@ -107,7 +123,7 @@ function CreatePoll() {
       )}
 
       <div className="poll-detail">
-        <h2 style={{ marginBottom: '24px' }}>创建新投票</h2>
+        <h2 style={{ marginBottom: "24px" }}>创建新投票</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -132,8 +148,73 @@ function CreatePoll() {
               placeholder="添加一些关于这个投票的说明..."
               maxLength={1000}
             />
-            {errors.description && <p className="error">{errors.description}</p>}
+            {errors.description && (
+              <p className="error">{errors.description}</p>
+            )}
           </div>
+
+          <div className="form-group">
+            <label>投票类型 *</label>
+            <div style={{ display: "flex", gap: "20px" }}>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="pollType"
+                  checked={pollType === "single"}
+                  onChange={() => {
+                    setPollType("single");
+                    setMaxChoices(1);
+                  }}
+                />
+                <span>单选</span>
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="pollType"
+                  checked={pollType === "multiple"}
+                  onChange={() => setPollType("multiple")}
+                />
+                <span>多选</span>
+              </label>
+            </div>
+          </div>
+
+          {pollType === "multiple" && (
+            <div className="form-group">
+              <label htmlFor="maxChoices">最多可选数量 *</label>
+              <input
+                type="number"
+                id="maxChoices"
+                min={1}
+                max={Math.max(2, validOptionsCount)}
+                value={maxChoices}
+                onChange={(e) =>
+                  setMaxChoices(Math.max(1, parseInt(e.target.value) || 1))
+                }
+              />
+              <p style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                当前有 {validOptionsCount} 个有效选项
+              </p>
+              {errors.maxChoices && (
+                <p className="error">{errors.maxChoices}</p>
+              )}
+            </div>
+          )}
 
           <div className="form-group">
             <label>投票选项 *</label>
@@ -177,11 +258,11 @@ function CreatePoll() {
             {errors.deadline && <p className="error">{errors.deadline}</p>}
           </div>
 
-          <div style={{ marginTop: '32px', display: 'flex', gap: '12px' }}>
+          <div style={{ marginTop: "32px", display: "flex", gap: "12px" }}>
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => navigate('/')}
+              onClick={() => navigate("/")}
             >
               取消
             </button>
@@ -190,13 +271,13 @@ function CreatePoll() {
               className="btn btn-primary"
               disabled={loading}
             >
-              {loading ? '创建中...' : '创建投票'}
+              {loading ? "创建中..." : "创建投票"}
             </button>
           </div>
         </form>
       </div>
     </div>
-  )
+  );
 }
 
-export default CreatePoll
+export default CreatePoll;

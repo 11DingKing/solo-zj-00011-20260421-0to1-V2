@@ -70,6 +70,13 @@ func (h *Handler) CreatePoll(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Invalid request body"})
 	}
 
+	if poll.PollType == "" {
+		poll.PollType = models.PollTypeSingle
+	}
+	if poll.MaxChoices <= 0 {
+		poll.MaxChoices = 1
+	}
+
 	if err := h.validator.Struct(poll); err != nil {
 		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Validation failed: " + err.Error()})
 	}
@@ -80,6 +87,14 @@ func (h *Handler) CreatePoll(c echo.Context) error {
 
 	if len(poll.Options) < 2 || len(poll.Options) > 8 {
 		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Must have between 2 and 8 options"})
+	}
+
+	if poll.MaxChoices > len(poll.Options) {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Max choices cannot exceed the number of options"})
+	}
+
+	if poll.PollType == models.PollTypeSingle && poll.MaxChoices != 1 {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Single choice poll must have max_choices = 1"})
 	}
 
 	if err := h.db.CreatePoll(&poll); err != nil {
@@ -103,8 +118,16 @@ func (h *Handler) Vote(c echo.Context) error {
 
 	req.PollID = pollID
 
-	if err := h.validator.Struct(req); err != nil {
-		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Validation failed: " + err.Error()})
+	if len(req.OptionIDs) == 0 {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "At least one option must be selected"})
+	}
+
+	optionIDMap := make(map[int]bool)
+	for _, id := range req.OptionIDs {
+		if optionIDMap[id] {
+			return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Duplicate options not allowed"})
+		}
+		optionIDMap[id] = true
 	}
 
 	poll, err := h.db.GetPollByID(pollID)
@@ -116,7 +139,15 @@ func (h *Handler) Vote(c echo.Context) error {
 	}
 
 	if time.Now().After(poll.Deadline) {
-		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Poll is closed"})
+		return c.JSON(http.StatusGone, models.ErrorResponse{Error: "Poll is closed"})
+	}
+
+	if len(req.OptionIDs) > poll.MaxChoices {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Too many options selected"})
+	}
+
+	if poll.PollType == models.PollTypeSingle && len(req.OptionIDs) != 1 {
+		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Single choice poll allows only one option"})
 	}
 
 	req.VoterID = h.getVoterID(c)
@@ -129,7 +160,7 @@ func (h *Handler) Vote(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "Already voted"})
 	}
 
-	if err := h.db.Vote(pollID, req.OptionID, req.VoterID); err != nil {
+	if err := h.db.Vote(pollID, req.OptionIDs, req.VoterID); err != nil {
 		return c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "Failed to vote"})
 	}
 

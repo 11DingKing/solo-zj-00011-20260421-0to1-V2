@@ -1,3 +1,5 @@
+export type PollType = "single" | "multiple";
+
 export interface Option {
   id: number;
   poll_id: number;
@@ -10,9 +12,12 @@ export interface Poll {
   title: string;
   description: string;
   options: Option[];
+  poll_type: PollType;
+  max_choices: number;
   deadline: string;
   created_at: string;
   total_votes: number;
+  total_voters: number;
 }
 
 export interface PollDetail extends Poll {
@@ -24,11 +29,13 @@ export interface CreatePollRequest {
   title: string;
   description: string;
   options: { text: string }[];
+  poll_type: PollType;
+  max_choices: number;
   deadline: string;
 }
 
 export interface VoteRequest {
-  option_id: number;
+  option_ids: number[];
 }
 
 export interface ErrorResponse {

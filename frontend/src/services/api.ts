@@ -1,11 +1,18 @@
-import { Poll, PollDetail, CreatePollRequest, ErrorResponse, SuccessResponse } from '../types';
+import {
+  Poll,
+  PollDetail,
+  CreatePollRequest,
+  VoteRequest,
+  ErrorResponse,
+  SuccessResponse,
+} from "../types";
 
-const API_BASE = '/api';
+const API_BASE = "/api";
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const error: ErrorResponse = await response.json();
-    throw new Error(error.error || '请求失败');
+    throw new Error(error.error || "请求失败");
   }
   return response.json();
 }
@@ -23,22 +30,22 @@ export const api = {
 
   async createPoll(data: CreatePollRequest): Promise<Poll> {
     const response = await fetch(`${API_BASE}/polls`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(data),
     });
     return handleResponse<Poll>(response);
   },
 
-  async vote(pollId: number, optionId: number): Promise<SuccessResponse> {
+  async vote(pollId: number, optionIds: number[]): Promise<SuccessResponse> {
     const response = await fetch(`${API_BASE}/polls/${pollId}/vote`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ option_id: optionId }),
+      body: JSON.stringify({ option_ids: optionIds }),
     });
     return handleResponse<SuccessResponse>(response);
   },
