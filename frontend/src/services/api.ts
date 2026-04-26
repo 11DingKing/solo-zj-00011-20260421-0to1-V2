@@ -2,7 +2,6 @@ import {
   Poll,
   PollDetail,
   CreatePollRequest,
-  VoteRequest,
   ErrorResponse,
   SuccessResponse,
 } from "../types";

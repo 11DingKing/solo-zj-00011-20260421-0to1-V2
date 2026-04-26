@@ -377,7 +377,7 @@ function PollDetail() {
                     </div>
                     <div className="progress-bar">
                       <div
-                        className="fill"
+                        className={`fill ${animating ? "animate" : ""}`}
                         style={{
                           width: `${displayPercentage}%`,
                         }}
